@@ -21,8 +21,19 @@ Please see the other files of this project for more details.
 
 *) It should be mentioned here that an alternative would be to use any LoRaWAN device and the smartphone TTN Mapper app. The TTN Mapper app then collects data from the TTN application and uses the GPS of the smartphone to create a valid coverage item. This project does not have such requirements, the LaRaWAN device is completely stand-alone.
 
-# Used commands for the RN2483A:
+# Installation notes
+The notes how to configure a RaspBerry Pi Zero will be added soon ...
 
+# Operational notes
+After powering up LoRaWANmapper is started automatically. <br>
+a) Red and green LEDs light up while initializing. This may take several seconds or will continue endlessly (no LoRaWAN gateway nearby and no valid network data available from an earlier joining). <br>
+b) The green LED might flash for some time until GPS fix is achieved. <br>
+c) Pressing the button will light up the gren LED and after releasing a data packet is sent out. <br>
+   If sending was successfull the green LED keeps lighting for 10 seconds. <br>
+   If the red LED lights up instead most probably too many packets were sent out and pausing for some minutes is required. <br>
+d) Without a button event for up to 5 minutes a data packet is automatically sent out.
+
+# Used commands for the RN2483A:
 a) initialisation if not joined before, triggers OTAA (requires LoRaWAN network access)
 
 | Command | Response |
