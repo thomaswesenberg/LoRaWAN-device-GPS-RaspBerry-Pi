@@ -31,10 +31,10 @@ b) The green LED might flash for some time until GPS fix is achieved. <br>
 c) Pressing the button will light up the gren LED and after releasing a data packet is sent out. <br>
    If sending was successfull the green LED keeps lighting for 10 seconds. <br>
    If the red LED lights up instead most probably too many packets were sent out and pausing for some minutes is required. <br>
-d) Without a button event for up to 5 minutes a data packet is automatically sent out.
+d) Without a button event for a minimum of 5 minutes a data packet is automatically sent out every 5 minutes of the hour.
 
 # Hardware
-Wiring LoRa Module RN2483A (Microchip) to the RaspBerry Pi Zero is realized by some cables and this break out module: <br>
+Wiring LoRa Module RN2483A (Microchip) to the RaspBerry Pi Zero is realized with some cables and this break out module: <br>
 https://www.tindie.com/products/drazzy/lorawan-rn2483rn2903-breakout-board-assembled/ <br>
 For connecting the GPS stick (here VK-172) a Micro-USB OTG adapter cable is neccessary. <br>
 Instead of a RasbBerry Pi Zero also any other RaspBerry could be used too, then the adapter cable is not required.
