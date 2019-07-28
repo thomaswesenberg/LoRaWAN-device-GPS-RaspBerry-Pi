@@ -33,6 +33,14 @@ c) Pressing the button will light up the gren LED and after releasing a data pac
    If the red LED lights up instead most probably too many packets were sent out and pausing for some minutes is required. <br>
 d) Without a button event for up to 5 minutes a data packet is automatically sent out.
 
+# Hardware
+Wiring LoRa Module RN2483A (Microchip) to the RaspBerry Pi Zero is realized by some cables and this break out module: <br>
+https://www.tindie.com/products/drazzy/lorawan-rn2483rn2903-breakout-board-assembled/ <br>
+For connecting the GPS stick (here VK-172) a Micro-USB OTG adapter cable is neccessary. <br>
+Instead of a RasbBerry Pi Zero also any other RaspBerry could be used too, then the adapter cable is not required.
+
+More details are coming soon. Please take a look at the high resolution pictures in between.
+
 # Used commands for the RN2483A:
 a) initialisation if not joined before, triggers OTAA (requires LoRaWAN network access)
 
