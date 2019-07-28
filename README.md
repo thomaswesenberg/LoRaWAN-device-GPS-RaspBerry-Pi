@@ -19,7 +19,7 @@ If a LoRaWAN data packet is received by a gateway configured for TTN it is forwa
 
 Please see the other files of this project for more details.
 
-*) It should be mentioned here that an alternative would be to use any LoRaWAN device and the smartphone TTN Mapper app. The TTN Mapper app then collects data from the TTN application and uses the GPS of the smartphone to create a valid coverage item. This project does not have such requirements, the LaRaWAN device is completely stand-alone.
+*) It should be mentioned here that an alternative would be to use any LoRaWAN device and the smartphone TTN Mapper app. The TTN Mapper app then collects data from the TTN application and uses the GPS of the smartphone to create a valid coverage item. This project does not have such requirements, the LaRaWAN device is stand-alone, without the need of a smartphone nearby running an app.
 
 # Installation notes
 The notes how to configure a RaspBerry Pi Zero will be added soon ...
