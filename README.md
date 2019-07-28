@@ -67,3 +67,5 @@ and altitude = 0x0003 => 3 <br>
 and hdop = 0x0b  => 1.1 <br>
 and option = 0 <br>
 (interpreted by the individual TTN application decoder)
+
+Hint: If the LoRa module answers with a 'denied' while trying to join the network via command 'mac join otaa', most probably wrong EEPROM content is the cause. Then a 'sys factoryRESET' may be necessary to continue. Before issuing a 'mac save' command the values of devaddr, appeui and appkey have to be updated. The first time before a 'mac join otaa' these values have to be set to zero. After successfully joining the network the module updates these values internally. A 'mac save' command writes them into EEPROM. This should also be the last command before powering off. Otherwise the frame counter value in the EEPROM ist not updated to the last one used. Continuing later with old frame conter values requires to reset the frame counter in the application manually. Otherwise all the frames with counter values less or equal to the last one received, will be discarded by the server.
