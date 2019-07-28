@@ -4,6 +4,8 @@ This repository contains hardware and software details of a personal project on 
 
 This LoRaWAN device is based on a RaspBerry Pi Zero with a GPS stick and a RN2483A LoRaWAN module. Power consumption is not an issue here, otherwise choosing a RaspBerry would be a no-go. Power comes from a Powerbank or directly from the car battery via a standard 12V->5V converter.
 
+![Alt text](pictures/thumbs/prototype_front-view_thumb.jpg?raw=true "prototype")
+
 # Short description
 If a LoRaWAN data packet is received by a gateway configured for TTN it is forwarded to the selected TTN server application. Using a payload decoder and a 'TTN Mapper' integration the location data will be considered by ttnmapper.org and shows up in their map. By contributing to the TTN Mapper project a worldwide map of LoRaWAN coverage is build up.
 1) Having a LoRaWAN gateway configured for TTN nearby is necessary for first testing purposes.
