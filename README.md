@@ -41,6 +41,8 @@ https://www.tindie.com/products/drazzy/lorawan-rn2483rn2903-breakout-board-assem
 For connecting the GPS stick (here VK-172) a Micro-USB OTG adapter cable is neccessary. <br>
 Instead of a RasbBerry Pi Zero also any other RaspBerry could be used too, then the adapter cable is not required.
 
+In the picture is a 3-pin connector to be seen soldered to the serial pins. It is used together with two serial-to-USB adapters (only RX pin used) to monitor both serial data streams. This is a very helpful debugging tool and avoids to insert many printf debug outputs in the code.
+
 More details are coming soon. Please take a look at the high resolution pictures in between.
 
 # Used commands for the RN2483A:
