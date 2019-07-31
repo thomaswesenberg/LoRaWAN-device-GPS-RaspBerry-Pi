@@ -38,7 +38,7 @@ d) Without a button event for a minimum of 5 minutes a data packet is automatica
 # Hardware
 Wiring LoRa Module RN2483A (Microchip) to the RaspBerry Pi Zero is realized with some cables and this break out module: <br>
 https://www.tindie.com/products/drazzy/lorawan-rn2483rn2903-breakout-board-assembled/ <br>
-For connecting the GPS stick (here VK-172) a Micro-USB OTG adapter cable is neccessary. <br>
+For connecting the GPS stick (here VK-172) a Micro-USB OTG adapter cable is necessary. <br>
 Instead of a RasbBerry Pi Zero also any other RaspBerry could be used too, then the adapter cable is not required.
 
 In the picture is a 3-pin connector to be seen soldered to the serial pins. It is used together with two serial-to-USB adapters (only RX pin used) to monitor both serial data streams. This is a very helpful debugging tool and avoids to insert many printf debug outputs in the code.
