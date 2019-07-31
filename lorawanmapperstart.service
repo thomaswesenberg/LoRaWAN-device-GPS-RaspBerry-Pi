@@ -1,0 +1,10 @@
+ [Unit]
+ Description=lorawan device script
+ After=multi-user.target
+
+ [Service]
+ Type=idle
+ ExecStart=/opt/lorawanmapper
+
+ [Install]
+ WantedBy=multi-user.target
