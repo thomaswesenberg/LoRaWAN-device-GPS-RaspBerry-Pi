@@ -2,6 +2,8 @@
 
 This repository contains hardware and software details of a personal project on a LoRaWAN device capable of sending its current location. The intention is to figure out coverage of LoRaWAN.
 
+![a coverage map](pictures/coverage-map.png?raw=true "a coverage map")
+
 This LoRaWAN device is based on a RaspBerry Pi Zero with a GPS stick and a RN2483A LoRaWAN module. Power consumption is not an issue here, otherwise choosing a RaspBerry would be a no-go. Power comes from a Powerbank or directly from the car battery via a standard 12V->5V converter.
 
 Beware: don't start developing such a device if there's no gateway around. You definitely need it during development nearly all the time.
