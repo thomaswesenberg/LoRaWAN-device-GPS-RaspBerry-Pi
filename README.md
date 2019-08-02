@@ -6,20 +6,20 @@ This repository contains hardware and software details of a personal project on 
 
 This LoRaWAN device is based on a RaspBerry Pi Zero with a GPS stick and a RN2483A LoRaWAN module. Power consumption is not an issue here, otherwise choosing a RaspBerry would be a no-go. Power comes from a Powerbank or directly from the car battery via a standard 12V->5V converter.
 
-Beware: don't start developing such a device if there's no gateway around. You definitely need it during development nearly all the time.
+Beware: Don't start developing such a device if there's no gateway around. You definitely need one during development quite often.
 
 ![Alt text](pictures/prototype_front-view.jpg?raw=true "prototype")
 
 # Short description
 If a LoRaWAN data packet is received by a gateway configured for TTN it is forwarded to the selected TTN server application. Using a payload decoder and a 'TTN Mapper' integration the location data will be considered by ttnmapper.org and shows up in their map. By contributing to the TTN Mapper project a worldwide map of LoRaWAN coverage is build up.
-1) Having a LoRaWAN gateway configured for TTN nearby is necessary for first testing purposes.
+- Having a LoRaWAN gateway configured for TTN nearby is necessary for first testing purposes.
    https://www.thethingsnetwork.org/ lists known locations of gateways and sometimes also coverage data on the map. At the time this description was written about 7400 gateways were up and running worldwide.
    It is possible to set up an own gateway, configured for TTN or any other server architecture, even a private one.
-2) After creating an account at https://www.thethingsnetwork.org/ it is possible to set up an application which would be the receiver for the own LoRaWAN data packets. LoRaWAN data is end-to-end encrypted. To inform ttnmapper.org about sucessfully packet reception by LoRaWAN network, an application plugin is available, called 'TTN Mapper'. *)
-3) To deliver the necessary GPS data to the TTN mapper project a 'decoder' converts the raw data into a JSON data structure.
-4) The hardware is based on the RN2483A fully-certified LoRa module which has the whole LoRaWAN stack integrated.
-5) The software is realized by a C program with autostart functionality. Every 5 minutes a packet is sent out. Alternatively pressing a button sends out a packet at once.
-6) A standard USB GPS stick deliveres the GPS location data.
+- After creating an account at https://www.thethingsnetwork.org/ it is possible to set up an application which would be the receiver for the own LoRaWAN data packets. LoRaWAN data is end-to-end encrypted. To inform ttnmapper.org about sucessfully packet reception by LoRaWAN network, an application plugin is available, called 'TTN Mapper'. *)
+- To deliver the necessary GPS data to the TTN mapper project a 'decoder' converts the raw data into a JSON data structure.
+- The hardware is based on the RN2483A fully-certified LoRa module which has the whole LoRaWAN stack integrated.
+- The software is realized by a C program with autostart functionality. Every 5 minutes a packet is sent out. Alternatively pressing a button sends out a packet at once.
+- A standard USB GPS stick deliveres the GPS location data.
 
 Please see the other files of this project for more details.
 
@@ -32,7 +32,7 @@ How to configure a RaspBerry Pi Zero is described here: <br>
 # Operational notes
 After powering up LoRaWANmapper is started automatically. <br>
 a) Red and green LEDs light up while initializing. This may take several seconds or will continue endlessly (no LoRaWAN gateway nearby and no valid network data available from an earlier joining). <br>
-b) The green LED might flash for some time until GPS fix is achieved. <br>
+b) The red LED flashes until GPS fix is achieved. <br>
 c) Pressing the button will light up the gren LED and after releasing a data packet is sent out. <br>
    If sending was successfull the green LED keeps lighting for 10 seconds. <br>
    If the red LED lights up instead most probably too many packets were sent out and pausing for some minutes is required. <br>
@@ -46,7 +46,7 @@ Instead of a RasbBerry Pi Zero also any other RaspBerry could be used too, then 
 
 In the picture is a 3-pin connector to be seen soldered to the serial pins. It is used together with two serial-to-USB adapters (only RX pin used) to monitor both serial data streams. This is a very helpful debugging tool and avoids to insert many printf debug outputs in the code.
 
-More details are coming soon. Please take a look at the high resolution pictures in between.
+More details may be added later. Please take a look at the high resolution pictures in between.
 
 # Used commands for the RN2483A:
 a) initialisation if not joined before, triggers OTAA (requires LoRaWAN network access)
