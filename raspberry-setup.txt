@@ -44,7 +44,7 @@ Update:
   sudo apt upgrade
 
 Install GPS and Port library:
-  sudo apt install libgps-dev wiringPi
+  sudo apt install libgps-dev gpsd wiringPi
 
 Grant access to the serial interface which is connected to the LoRaWAN module RN2483A.
 Update basic configuration:
@@ -93,7 +93,7 @@ If later you want to change the program and test it manually, stop the automatic
 These commands may be helpful too:
   ps -ax | grep lorawanmapper
   sudo systemctl status lorawanmapperstart
-  sudo apt install gpsd gpsd-clients
+  sudo apt install gpsd-clients
   sudo cgps -c
   sudo poweroff
 
