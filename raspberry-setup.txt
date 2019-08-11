@@ -1,18 +1,17 @@
 ﻿Preparation to connect to the Raspberry
 =======================================
 
-The Raspberry Pi Zero has no Ethernet interface. And to connect a Monitor we would need a special HDMI cable.
-A keyboard could be connected to USB with an adapter - but we need this interface for the GPS stick.
-So let's do it headless. Means we configure it to automatically connect to our WLAN and then we connect to the Raspberry via a SSH command line.
+The Raspberry Pi Zero has no Ethernet interface and to connect a Monitor we would need a special HDMI cable. A keyboard could be connected to USB with an adapter, but we need this interface for the GPS stick.
+So we do it headless, means we configure it to automatically connect to our WLAN and then we connect to the Raspberry via a SSH on the command line.
 
 Download “Raspbian ... Lite” from https://www.raspberrypi.org/downloads/raspbian
 
 Unpack the file. Then copy the image to µSD card using a linux pc and µSD adapter.
-Change sdx to the correct one, e. g. by using lsblk before and after connecting µSD adapter.
   sudo dd bs=4M if=~/Downloads/*-lite.img of=/dev/sdx conv=fsync
+Change sdx to the correct one, e. g. by using 'lsblk' before and after connecting µSD adapter or by issuing 'dmesg'.
 Other possibilities e.g. using a Windows PC are explained at that web site.
 
-Mount the µSD card and add a file “ssh” to the boot partition:
+Mount the µSD card (remove and reinsert) and add a file “ssh” to the boot partition:
   touch /media/$(whoami)/boot/ssh
 
 Add wifi configuration (update SSID and PASS):
@@ -30,7 +29,7 @@ Change hostname (e.g. to 'rpi-lorawan-mapper'):
 
 Eject the card and insert to the Raspberry Pi, then plug in power.
 
-Use the command line to check access via WLAN:
+Use the command line to check access via WLAN (name must fit the choosen hostname):
   ping rpi-lorawan-mapper
 
 If successful connect via SSH (password=raspberry):
@@ -44,8 +43,8 @@ Update:
   sudo apt update
   sudo apt upgrade
 
-Install GPS library:
-  sudo apt install libgps-dev
+Install GPS and Port library:
+  sudo apt install libgps-dev wiringPi
 
 Grant access to the serial interface which is connected to the LoRaWAN module RN2483A.
 Update basic configuration:
@@ -61,14 +60,11 @@ We are now logged out at once. Relogin via SSH after waitung for about 30 second
 The connected GPS stick should be listed:
   ls /dev/ttyACM0
 
-Compile:
-  gcc lorawanmapper.c -o lorawanmapper -lgps
+Copy the 'lorawanmapper.c' file to the raspberry using an FTP tool. Then compile:
+  gcc lorawanmapper.c -o lorawanmapper -lgps -lwiringPi
 
 Run:
-  ./lorawanmapper
-
-We receive several errors 'permission denied'. Run again:
-  ./lorawanmapper
+  sudo ./lorawanmapper
 
 It takes some time until GPS fix is achieved, then the message to the LoRaWAN gateway should be sent out.
 If everything is working fine the message should be received by the TTN application.
