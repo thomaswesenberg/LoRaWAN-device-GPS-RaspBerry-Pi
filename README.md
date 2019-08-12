@@ -37,7 +37,7 @@ b) The LED flashes yellow until GPS fix is achieved. Then it will turn off.<br>
 c) Pressing the first button will light up the LED in green and after releasing a data packet is sent out. <br>
    If sending was successfull the green LED keeps lighting for 15 seconds. <br>
    If the LED lights up in red for 15 seconds most probably too many packets were sent out and pausing for some minutes is required. <br>
-d) Pressing the second button will light up the LED in red and the automatic mode is switched off. This is reported by a LED color change red-yellow-red. Pressing this button again will reactivate automatic mode (e) and the LED will report this by a color change of green-yellow-green.
+d) Pressing the second button will light up the LED in red and the automatic mode is switched off. This is reported by a LED color change red-yellow-red. Pressing this button again will reactivate automatic mode (e) and the LED will report this by a color change of green-yellow-green.<br>
 e) Without a button event for a minimum of 5 minutes a data packet is automatically sent out every 5 minutes of the hour.
 
 # Hardware
