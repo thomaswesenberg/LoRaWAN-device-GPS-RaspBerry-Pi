@@ -1,6 +1,6 @@
 /*****************************/
 /* file: lorawanmapper.c     */
-/* date: 2019-07-28          */
+/* date: 2019-08-12          */
 /* autor: Thomas Wesenberg   */
 /*****************************/
 
@@ -16,74 +16,88 @@
 #include <gps.h>
 #include <unistd.h>
 #include <math.h>
+#include <wiringPi.h>
 
-#define DELAY_1MS     1000
-#define DELAY_10MS   10000
-#define DELAY_100MS 100000
-#define DELAY_200MS 200000
-#define DELAY_500MS 500000
-#define DELAY_1S   1000000
-#define DELAY_2S   2000000
-#define DELAY_10S 10000000
+#define GPIO_LED_RED   19
+#define GPIO_LED_GREEN 26
+#define GPIO_RF_RESET  25
 #define BUFLEN 64
 #define HWEUI_LEN 20
 #define SENT_EVERY_X_MINUTES 5
-#define APP_EUI "0123456789012345" /* private data, refer TTN console */
-#define APP_KEY "01234567890123456789012345678901" /* private data, refer TTN console */
+#define APP_EUI_DEFAULT "0123456789012345" /* private data, refer TTN console */
+#define APP_EUI_PRIVATE APP_EUI_DEFAULT
+#define APP_KEY_DEFAULT "01234567890123456789012345678901" /* private data, refer TTN console */
+#define APP_KEY_PRIVATE APP_KEY_DEFAULT
 
+int button_check(void);
+
+enum LED_ {LED_OFF, LED_RED, LED_GREEN, LED_YELLOW, LED_RESTORE};
+
+int ledStatusSaved = LED_YELLOW;
 int ser_fd;
 struct gps_data_t my_gps_data;
 char message[BUFLEN];
+int buttonRecognized = 0;
+bool otaaForced = false;
 
-int delay(unsigned long us)
+void check_lorawan_parameter(void)
 {
-  struct timespec ts;
-  int err;
-
-  ts.tv_sec = us / 1000000L;
-  ts.tv_nsec = (us % 1000000L) * 1000L;
-  err = nanosleep(&ts, (struct timespec *)NULL);
-  return(err);
+	if (APP_EUI_PRIVATE == APP_EUI_DEFAULT) {
+		printf("- Please change the APP EUI to connect to TTN network!\r\n");
+	}
+	if (APP_KEY_PRIVATE == APP_KEY_DEFAULT) {
+		printf("- Please change the APP KEY to connect to TTN network!\r\n");
+	}
 }
 
-void led_green(bool on)
+void delay_ms(unsigned int ms)
 {
-	FILE *fp;
-	if (on)
-		fp = popen("echo 0 > /sys/class/gpio/gpio2/value", "r");
-	else
-		fp = popen("echo 1 > /sys/class/gpio/gpio2/value", "r");
-	pclose(fp);
+	struct timespec ts;
+	ts.tv_sec = 0;
+	if (ms >= 200) {
+		int counter = ms / 200;
+		ts.tv_nsec = 100000000L;
+		for (int i = 0; i < counter; i++) {
+			nanosleep(&ts, (struct timespec *)NULL); // wait 100ms
+			button_check(); // takes 100ms too
+		}
+	} else {
+		ts.tv_nsec = ms * 1000000L;
+		nanosleep(&ts, (struct timespec *)NULL);
+	}
 }
 
-void led_red(bool on)
+void led(int led_status)
 {
-	FILE *fp;
-	if (on)
-		fp = popen("echo 0 > /sys/class/gpio/gpio3/value", "r");
-	else
-		fp = popen("echo 1 > /sys/class/gpio/gpio3/value", "r");
-	pclose(fp);
+	if ((led_status == LED_GREEN) || ((led_status == LED_RESTORE) && (ledStatusSaved == LED_GREEN))) {
+		digitalWrite(GPIO_LED_GREEN, 0);
+		digitalWrite(GPIO_LED_RED, 1);
+	} else if ((led_status == LED_RED) || ((led_status == LED_RESTORE) && (ledStatusSaved == LED_RED))) {
+		digitalWrite(GPIO_LED_GREEN, 1);
+		digitalWrite(GPIO_LED_RED, 0);
+	} else if ((led_status == LED_YELLOW) || ((led_status == LED_RESTORE) && (ledStatusSaved == LED_YELLOW))) {
+		digitalWrite(GPIO_LED_GREEN, 0);
+		digitalWrite(GPIO_LED_RED, 0);
+	} else {
+		digitalWrite(GPIO_LED_GREEN, 1);
+		digitalWrite(GPIO_LED_RED, 1);
+	}
+	if (led_status != LED_RESTORE) {
+		ledStatusSaved = led_status;
+	}
 }
 
 void init(void)
 {
-	FILE *fp;
 	int rxCount;
 
-	// prepare GPIO access
-	// LED green
-	fp = popen("echo 2 > /sys/class/gpio/export 2>/dev/null", "r");
-	pclose(fp);
-	// LED red
-	fp = popen("echo 3 > /sys/class/gpio/export 2>/dev/null", "r");
-	pclose(fp);
-	// RF chip reset pin
-	fp = popen("echo 25 > /sys/class/gpio/export 2>/dev/null", "r");
-	pclose(fp);
-	// button
-	fp = popen("echo 16 > /sys/class/gpio/export 2>/dev/null", "r");
-	pclose(fp);
+	pinMode(GPIO_LED_GREEN, OUTPUT);
+	pinMode(GPIO_LED_RED, OUTPUT);
+	pinMode(GPIO_RF_RESET, OUTPUT);
+	digitalWrite(GPIO_LED_GREEN, 0);
+	digitalWrite(GPIO_LED_RED, 0);
+	digitalWrite(GPIO_RF_RESET, 0);
+
 	ser_fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
 	if (ser_fd == -1) {
 		printf("could not open serial interface\r\n");
@@ -101,41 +115,26 @@ void init(void)
 		tcsetattr(ser_fd, TCSANOW, &options);
 		tcflush(ser_fd, TCIOFLUSH);
 	}
-	// set GPIO direction and default value
-	fp = popen("echo out > /sys/class/gpio/gpio2/direction", "r");
-	pclose(fp);
-	fp = popen("echo 1 > /sys/class/gpio/gpio2/value", "r");
-	pclose(fp);
-	fp = popen("echo out > /sys/class/gpio/gpio3/direction", "r");
-	pclose(fp);
-	fp = popen("echo 1 > /sys/class/gpio/gpio3/value", "r");
-	pclose(fp);
-	fp = popen("echo out > /sys/class/gpio/gpio25/direction", "r");
-	pclose(fp);
-	fp = popen("echo 0 > /sys/class/gpio/gpio25/value", "r");   // reset chip
-	pclose(fp);
-	delay(DELAY_1MS);
 
-	// start up RF chip
-	fp = popen("echo 1 > /sys/class/gpio/gpio25/value", "r");
-	pclose(fp);
-	delay(DELAY_1S);  // wait for power up of RF chip
+	digitalWrite(GPIO_RF_RESET, 1);
+	delay_ms(1000);  // wait for power up of RF chip
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		close(ser_fd);
 		printf("nothing received while waiting for version info\r\n");
 		exit(EXIT_FAILURE);
 	}
-	//message[rxCount] = 0;
-	//printf("chip version: %s", message);
 }
 
 bool join(void)
 {
 	// let's check if we've got usable data out of eeprom from saved previous activities
+	if (otaaForced) {
+		return false;
+	}
 	strncpy(message, "mac get devaddr\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	int rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		printf("nothing received while waiting for GET DEVADDR reply\r\n");
@@ -147,7 +146,7 @@ bool join(void)
 			// ok to reuse data from eeprom
 			strncpy(message, "mac join abp\r\n", BUFLEN);
 			write(ser_fd, message, strlen(message));
-			delay(DELAY_1S);
+			delay_ms(1000);
 			rxCount = read(ser_fd, message, BUFLEN);	// ok
 			if (rxCount < 1) {
 				return false;
@@ -155,6 +154,15 @@ bool join(void)
 			//message[rxCount] = 0;
 			//printf("join abp result: %s", message);
 			if (strstr(message, "accepted\r\n")) {
+				strncpy(message, "sys get hweui\r\n", BUFLEN);
+				write(ser_fd, message, strlen(message));
+				delay_ms(100);
+				rxCount = read(ser_fd, &message, HWEUI_LEN);
+				if (rxCount < 1) {
+					return false;
+				}
+				printf("This HW EUI is %s", message);
+				check_lorawan_parameter();
 				return true;
 			}
 		}
@@ -168,7 +176,7 @@ bool activate(void)
 	char hweui[HWEUI_LEN];
 	strncpy(message, "sys factoryRESET\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	sleep(5);
+	delay_ms(5000);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		return false;
@@ -178,69 +186,72 @@ bool activate(void)
 	}
 	strncpy(message, "sys get hweui\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	rxCount = read(ser_fd, &hweui, HWEUI_LEN);
 	if (rxCount < 1) {
 		return false;
 	}
+	printf("This HW EUI is %s", hweui);
+	check_lorawan_parameter();
+
 	strncpy(message, "mac set deveui ", BUFLEN);
 	strncat(message, hweui, BUFLEN - strlen(hweui));
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		return false;
 	}
-	strncpy(message, "mac set appeui " APP_EUI "\r\n", BUFLEN);
+	strncpy(message, "mac set appeui " APP_EUI_PRIVATE "\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		return false;
 	}
-    strncpy(message, "mac set appkey " APP_KEY "\r\n", BUFLEN); // app: de-elmshorn-1-mapping
+    strncpy(message, "mac set appkey " APP_KEY_PRIVATE "\r\n", BUFLEN); // app: de-elmshorn-1-mapping
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		return false;
 	}
     strncpy(message, "mac set devaddr 00000000\r\n", BUFLEN);	// blanc credentials part 1, necessary for saving eeprom content later
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		return false;
 	}
     strncpy(message, "mac set nwkskey 00000000000000000000000000000000\r\n", BUFLEN);	// blanc credentials part 2, necessary for saving eeprom content later
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		return false;
 	}
     strncpy(message, "mac set appskey 00000000000000000000000000000000\r\n", BUFLEN);	// blanc credentials part 3, necessary for saving eeprom content later
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		return false;
 	}
     strncpy(message, "mac save\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	sleep(3);
+	delay_ms(3000);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		return false;
 	}
 	strncpy(message, "mac join otaa\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		return false;
 	}
-	delay(DELAY_10S);
+	delay_ms(10000);
 
 	rxCount = read(ser_fd, message, BUFLEN); // accepted or denied
 	if (rxCount < 1) {
@@ -260,7 +271,7 @@ void set_parameter(void)
 {
 	strncpy(message, "radio set sf sf7\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	int rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		close(ser_fd);
@@ -269,7 +280,7 @@ void set_parameter(void)
 
 	strncpy(message, "radio set pwr 15\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		close(ser_fd);
@@ -287,7 +298,7 @@ bool loraSend(int opt)
 	sprintf(message, "mac tx uncnf 1 %06x%06x%04x%02x%02x\r\n", LatitudeBinary & 0xFFFFFF, LongitudeBinary & 0xFFFFFF, AltitudeBinary & 0xFFFF, HdopBinary & 0xFF, opt);
 	tcflush(ser_fd, TCIFLUSH);
 	write(ser_fd, message, strlen(message));
-	delay(DELAY_100MS);
+	delay_ms(100);
 	if (read(ser_fd, message, BUFLEN) < 1) {
 		return false;
 	}
@@ -298,7 +309,7 @@ bool loraSend(int opt)
 		}
 		return false;
 	}
-	sleep(5);
+	delay_ms(5000);
 	if (read(ser_fd, message, BUFLEN) < 1) {
 		return false;
 	}
@@ -318,7 +329,7 @@ void saveLoraParameter(void)
 	tcflush(ser_fd, TCIOFLUSH);
 	strncpy(message, "mac save\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	sleep(3);
+	delay_ms(3000);
 	int rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		close(ser_fd);
@@ -330,82 +341,77 @@ void saveLoraParameter(void)
 
 void deinit(void)
 {
-	// RF chip reset
-	FILE *fp = popen("echo 0 > /sys/class/gpio/gpio25/value", "r");
-	pclose(fp);
+	digitalWrite(GPIO_RF_RESET, 0);
 	gps_stream(&my_gps_data, WATCH_DISABLE, NULL);
 	gps_close (&my_gps_data);
 }
 
-bool button(void)
+int button_check(void)
 {
-	FILE *fp;
-	int value = 0;
-	fp = popen("cat /sys/class/gpio/gpio16/value", "r");
-	if (fp != NULL) {
-   	value = fgetc(fp);
-		pclose(fp);
+	// The buttons are in parallel to the LEDs. To check button status we have to switch LEDs off.
+	// Hardware circuitry takes care that switching LEDs off for less than 250ms will have no visual effect.
+	static bool valueButtonGreenSaved = false, valueButtonRedSaved = false;
+	int valueButtonGreen, valueButtonRed;
+	int button = 0;
+	struct timespec ts;
+	ts.tv_sec = 0;
+	// set to input and wait a very short time
+	pinMode(GPIO_LED_GREEN, INPUT);
+	pinMode(GPIO_LED_RED, INPUT);
+	ts.tv_nsec = 10000000L;
+	nanosleep(&ts, (struct timespec *)NULL);
+	valueButtonGreen = digitalRead(GPIO_LED_GREEN);
+	valueButtonRed = digitalRead(GPIO_LED_RED);
+	// set back to output and wait for debouncing functionality (read status two times)
+	pinMode(GPIO_LED_GREEN, OUTPUT);
+	pinMode(GPIO_LED_RED, OUTPUT);
+	led(LED_RESTORE);
+	ts.tv_nsec = 90000000L;
+	nanosleep(&ts, (struct timespec *)NULL);
+	// set to input and wait a very short time
+	pinMode(GPIO_LED_GREEN, INPUT);
+	pinMode(GPIO_LED_RED, INPUT);
+	ts.tv_nsec = 10000000L;
+	nanosleep(&ts, (struct timespec *)NULL);
+	valueButtonGreen += digitalRead(GPIO_LED_GREEN);
+	valueButtonRed += digitalRead(GPIO_LED_RED);
+	// now we have all the information we need, so set back to output for controlling LED status
+	pinMode(GPIO_LED_GREEN, OUTPUT);
+	pinMode(GPIO_LED_RED, OUTPUT);
+	led(LED_RESTORE);
+	if (valueButtonGreen == 0) {
+		valueButtonGreenSaved = true;
 	}
-	if (value == '0')
-		return true;
-	return false;
+	if (valueButtonRed == 0) {
+		valueButtonRedSaved = true;
+	}
+	if (valueButtonGreen == 2) {
+		valueButtonGreenSaved = false;
+	}
+	if (valueButtonRed == 2) {
+		valueButtonRedSaved = false;
+	}
+	if (valueButtonGreenSaved) {
+		button = 1;
+	} else if (valueButtonRedSaved) {
+		button = 2;
+	}
+	if (buttonRecognized < button) {
+		buttonRecognized = button;
+	}
+	return button;
 }
 
-bool button_pressed(void)
+int button_released(void)
 {
-	// called every 100ms
-	static struct timeval lastTimeEvent;
-	static bool buttonSaved = false;
-	static bool buttonStatus = false;
-	int elapsedTime;
-	if (button() != buttonSaved) {
-		gettimeofday(&lastTimeEvent, NULL);
-		buttonSaved = ! buttonSaved;
-	}
-	else {
-		if (buttonStatus != buttonSaved) {
-			buttonStatus = buttonSaved;
-			//printf("button status changed\n");
-			if (buttonStatus) {
-				led_green(true);
-			} else {
-				led_green(false);
-			}
-		}
-#if 0
-		else if (buttonStatus == true) {
-			// check if we have a long pressing event
-			struct timeval timeNowVal; 
-			gettimeofday(&timeNowVal, NULL);
-			elapsedTime = timeNowVal.tv_sec - lastTimeEvent.tv_sec;
-			if (elapsedTime > 5) {
-				// button pressing for 5 seconds means "power down"
-				led_green(true);
-				led_red(true);
-				deinit();
-				sleep(3);
-				//popen("sudo /sbin/shutdown -a -P now", "r");
-				popen("poweroff", "r");
-			}
-		}
-#endif
-	}
-	return buttonStatus;
-}
-
-bool button_released(void)
-{
-	static bool eventAnnounced = true;
-	if (button_pressed()) {
-		eventAnnounced = false;
-	}
-	else {
-		if (! eventAnnounced) {
-			eventAnnounced = true;
-			return true;
+	if (button_check() == 0) {
+		int value = buttonRecognized;
+		if (buttonRecognized > 0) {
+			buttonRecognized = 0;
+			return value;
 		}
 	}
-	return false;
+	return 0;
 }
 
 bool init_gps(void)
@@ -428,9 +434,13 @@ void flush_gps_data(void)
 
 bool fetch_gps(void)
 {
-	if (gps_waiting(&my_gps_data, 1000000)) {
+	for (int i = 0; i < 3; i++) {
 		int rc = gps_read(&my_gps_data);
 		if (rc > 0) {
+			while (rc > 0) {
+				// flush old data
+				rc = gps_read(&my_gps_data);
+			}
 			if ((my_gps_data.status == STATUS_FIX) &&
 				(my_gps_data.fix.mode == MODE_3D) &&
 				!isnan(my_gps_data.fix.time) &&
@@ -441,45 +451,85 @@ bool fetch_gps(void)
 					return true;
 				}
 		}
+		delay_ms(500);
 	}
 	return false;
 }
 
 int main(int argc, char** argv)
 {
+	bool automode = true;
+	if (argc == 2) {
+		if (strcmp(argv[1], "OTAA") == 0) {
+			otaaForced = true;
+			printf("> forcing OTAA join <\r\n");
+		}
+	} else if (argc > 2) {
+		printf("Too many arguments supplied.\n");
+		return EXIT_FAILURE;
+	}
+	printf("Now initializing WiringPi ...\r\n");
+	wiringPiSetupGpio();
+	pullUpDnControl(GPIO_LED_GREEN, PUD_UP);
+	pullUpDnControl(GPIO_LED_RED, PUD_UP);
+	printf("WiringPi Setup finished\r\n");
 	init();
+	printf("Now initializing GPS ...\r\n");
 	if (init_gps() == false) {
 		return EXIT_FAILURE;
 	}
-	led_green(true);
-	led_red(true);
+	printf("GPS init finished\r\n");
 	// set up lorawan
-	if (!button() && join()) {
-		// saved data is valid, we continue without any additional interaction
-		led_green(false);
-		led_red(false);
-	} else {
+	if (! join()) {
 		// communicate with network, wait as long as necessary
 		while (! activate()) {
-			sleep(SENT_EVERY_X_MINUTES * 60);
+			delay_ms(SENT_EVERY_X_MINUTES * 60 * 1000);
 		}
 	}
-	led_green(false);
-	led_red(false);
+	led(LED_OFF);
 	set_parameter();
 	flush_gps_data();
-	printf("sucessfully initialized\n");
+	printf("successfully initialized, now waiting for an event (time, button) ...\n");
 	while (1) {
 		static int option = 0;
 		static long gpsSecondNow = 0;
 		static long lastDataSentSecond = 0;
+		static bool gpsFixMsgPrinted = false;
 		if (fetch_gps()) {
+			if (!gpsFixMsgPrinted) {
+				gpsFixMsgPrinted = true;
+				printf("GPS fix achieved\r\n");
+			}
 			bool sendDataNow = false;
-			if (button_released()) {
+			int buttonReleased = button_released();
+			if (buttonReleased == 1) {
 				option = 1;
 				sendDataNow = true;
 				gpsSecondNow = (long)my_gps_data.fix.time;
-			} else {
+			} else if (buttonReleased == 2) {
+				// toggle automatically transmission
+				if (automode) {
+					printf("automode off\n");
+					automode = false;
+					led(LED_RED);
+					delay_ms(2000);
+					led(LED_YELLOW);
+					delay_ms(2000);
+					led(LED_RED);
+					delay_ms(2000);
+					led(LED_OFF);
+				} else {
+					printf("automode on\n");
+					automode = true;
+					led(LED_GREEN);
+					delay_ms(2000);
+					led(LED_YELLOW);
+					delay_ms(2000);
+					led(LED_GREEN);
+					delay_ms(2000);
+					led(LED_OFF);
+				}
+			} else if (automode) {
 				if (gpsSecondNow != (long)my_gps_data.fix.time) {
 					gpsSecondNow = (long)my_gps_data.fix.time;
 					if ((gpsSecondNow % (SENT_EVERY_X_MINUTES * 60)) == 0) {
@@ -490,28 +540,26 @@ int main(int argc, char** argv)
 				}
 			}
 			if (sendDataNow) {
-				led_red(false);
-				led_green(true);
+				led(LED_GREEN);
 				if (loraSend(option)) {
-					// be prepared for sudden poweroff event
+					// be prepared for poweroff
 					saveLoraParameter();
-					sleep(10);
-					led_green(false);
+					delay_ms(15000);
+					led(LED_OFF);
 				} else {
-					led_green(false);
-					led_red(true);
-					sleep(10);
-					led_red(false);
+					led(LED_RED);
+					delay_ms(15000);
+					led(LED_OFF);
 				}
 				printf("lat: %f, lon: %f, alt: %f, hdop: %f\n", my_gps_data.fix.latitude, my_gps_data.fix.longitude, my_gps_data.fix.altitude, my_gps_data.dop.hdop);
 				lastDataSentSecond = gpsSecondNow;
 			}
-			delay(DELAY_100MS);
+			delay_ms(100);
 		} else {
-			led_red(true);
-			delay(DELAY_200MS);
-			led_red(false);
-			delay(DELAY_500MS);
+			led(LED_YELLOW);
+			delay_ms(2000);
+			led(LED_OFF);
+			delay_ms(1000);
 		}
 	}
 	deinit();
