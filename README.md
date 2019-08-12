@@ -31,7 +31,7 @@ How to configure a RaspBerry Pi Zero is described here: <br>
 
 # Operational notes
 After powering up LoRaWANmapper is started automatically. <br>
-Currently not shown on the picture (will be added soon) is an additional adapter with leds and pushbuttons. Without that adapter just jump to (e).
+Currently not shown on the picture (will be added soon) is an additional adapter with leds and pushbuttons. Without that adapter just jump to (e).br>
 a) LED is yellow while initializing. This may take several seconds or will continue endlessly (no LoRaWAN gateway nearby and no valid network data available from an earlier joining). <br>
 b) The LED flashes yellow until GPS fix is achieved. Then it will turn off.<br>
 c) Pressing the first button will light up the LED in green and after releasing a data packet is sent out. <br>
