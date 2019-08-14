@@ -66,8 +66,7 @@ a) initialisation if not joined before, triggers OTAA (requires LoRaWAN network 
 | mac save | ok |
 | mac join otaa | ok |
 |  | accepted |
-| radio set sf sf7 | ok |
-| radio set pwr 15 | ok |
+| mac set dr 5 | ok |
 
 b) initialisation if already joined, no LoRaWAN network access required (no LoRa data transmission)
 
@@ -77,8 +76,7 @@ b) initialisation if already joined, no LoRaWAN network access required (no LoRa
 | mac get devaddr | [non zero value] |
 | mac join abp | ok |
 |  | accepted |
-| radio set sf sf7 | ok |
-| radio set pwr 15 | ok |
+| mac set dr 5 | ok |
 
 c) data
 
