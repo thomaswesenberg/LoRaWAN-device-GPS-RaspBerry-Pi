@@ -288,19 +288,10 @@ bool activate(void)
 
 void set_parameter(void)
 {
-	strncpy(message, "radio set sf sf7\r\n", BUFLEN);
+	strncpy(message, "mac set dr 5\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
 	delay_ms(100);
 	int rxCount = read(ser_fd, message, BUFLEN);
-	if (rxCount < 1) {
-		close(ser_fd);
-		exit(EXIT_FAILURE);
-	}
-
-	strncpy(message, "radio set pwr 15\r\n", BUFLEN);
-	write(ser_fd, message, strlen(message));
-	delay_ms(100);
-	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		close(ser_fd);
 		exit(EXIT_FAILURE);

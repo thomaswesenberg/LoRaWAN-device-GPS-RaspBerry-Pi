@@ -71,6 +71,9 @@ If everything is working fine the message should be received by the TTN applicat
 This requires a gateway nearby and the TTN account configured correctly.
 Every 5 minutes the program should print out location data.
 
+It is also possible to add the parameter 'OTAA'. Then an OTAA joining is forced. This is required every time TTN parameters are changed, for example the application key. The HW EUI which must be given to TTN when registering a device is printed out too.
+  sudo ./lorawanmapper OTAA
+
 Now prepare for an automatic start of lorawanmapper:
   sudo cp ./lorawanmapper /opt/lorawanmapper
   sudo chown root:root /opt/lorawanmapper

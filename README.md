@@ -8,7 +8,7 @@ This LoRaWAN device is based on a RaspBerry Pi Zero with a GPS stick and a RN248
 
 Beware: Don't start developing such a device if there's no gateway around. You definitely need one during development quite often.
 
-![Alt text](pictures/prototype_front-view.jpg?raw=true "prototype")
+![Alt text](pictures/prototype2_front-view.jpg?raw=true "prototype")
 
 # Short description
 If a LoRaWAN data packet is received by a gateway configured for TTN it is forwarded to the selected TTN server application. Using a payload decoder and a 'TTN Mapper' integration the location data will be considered by ttnmapper.org and shows up in their map. By contributing to the TTN Mapper project a worldwide map of LoRaWAN coverage is build up.
@@ -31,12 +31,14 @@ How to configure a RaspBerry Pi Zero is described here: <br>
 
 # Operational notes
 After powering up LoRaWANmapper is started automatically. <br>
-a) Red and green LEDs light up while initializing. This may take several seconds or will continue endlessly (no LoRaWAN gateway nearby and no valid network data available from an earlier joining). <br>
-b) The red LED flashes until GPS fix is achieved. <br>
-c) Pressing the button will light up the gren LED and after releasing a data packet is sent out. <br>
-   If sending was successfull the green LED keeps lighting for 10 seconds. <br>
-   If the red LED lights up instead most probably too many packets were sent out and pausing for some minutes is required. <br>
-d) Without a button event for a minimum of 5 minutes a data packet is automatically sent out every 5 minutes of the hour.
+Currently not shown on the picture (will be added soon) is an additional adapter with leds and pushbuttons. Without that adapter just jump to (e).<br>
+a) LED is yellow while initializing. This may take several seconds or will continue endlessly (no LoRaWAN gateway nearby and no valid network data available from an earlier joining). <br>
+b) The LED flashes yellow until GPS fix is achieved. Then it will turn off.<br>
+c) Pressing the first button will light up the LED in green and after releasing a data packet is sent out. <br>
+   If sending was successfull the green LED keeps lighting for 15 seconds. <br>
+   If the LED lights up in red for 15 seconds most probably too many packets were sent out and pausing for some minutes is required. <br>
+d) Pressing the second button will light up the LED in red and the automatic mode is switched off. This is reported by a LED color change red-yellow-red. Pressing this button again will reactivate automatic mode (e) and the LED will report this by a color change of green-yellow-green.<br>
+e) Without a button event for a minimum of 5 minutes a data packet is automatically sent out every 5 minutes of the hour.
 
 # Hardware
 Wiring LoRa Module RN2483A (Microchip) to the RaspBerry Pi Zero is realized with some cables and this break out module: <br>
@@ -46,7 +48,7 @@ Instead of a RasbBerry Pi Zero also any other RaspBerry could be used too, then 
 
 In the picture is a 3-pin connector to be seen soldered to the serial pins. It is used together with two serial-to-USB adapters (only RX pin used) to monitor both serial data streams. This is a very helpful debugging tool and avoids to insert many printf debug outputs in the code.
 
-More details may be added later. Please take a look at the high resolution pictures in between.
+More details will be added later. Please take a look at the high resolution pictures in between.
 
 # Used commands for the RN2483A:
 a) initialisation if not joined before, triggers OTAA (requires LoRaWAN network access)
@@ -64,8 +66,7 @@ a) initialisation if not joined before, triggers OTAA (requires LoRaWAN network 
 | mac save | ok |
 | mac join otaa | ok |
 |  | accepted |
-| radio set sf sf7 | ok |
-| radio set pwr 15 | ok |
+| mac set dr 5 | ok |
 
 b) initialisation if already joined, no LoRaWAN network access required (no LoRa data transmission)
 
@@ -75,8 +76,7 @@ b) initialisation if already joined, no LoRaWAN network access required (no LoRa
 | mac get devaddr | [non zero value] |
 | mac join abp | ok |
 |  | accepted |
-| radio set sf sf7 | ok |
-| radio set pwr 15 | ok |
+| mac set dr 5 | ok |
 
 c) data
 
@@ -95,3 +95,4 @@ and option = 0 <br>
 (interpreted by the individual TTN application decoder)
 
 Hint: If you are in reach of a LoRaWAN gateway but the LoRa module answers with a 'denied' while trying to join the network via command 'mac join otaa', most probably wrong EEPROM content is the cause. Then a 'sys factoryRESET' may be necessary to continue. Before issuing a 'mac save' command the values of devaddr, appeui and appkey have to be updated. The first time before issuing a 'mac join otaa' these values have to be set to zero. After successfully joining the network the module updates these values internally. A following 'mac save' command writes them into EEPROM. This should also be the last command before powering off. Otherwise the frame counter value in the EEPROM ist not updated to the last one used. Continuing later with an old frame counter value may require to reset the frame counter in the application manually. Otherwise all the frames with counter values less or equal to the last one received, will be discarded by the server.
+If you change TTN parameters you should force a new OTAA joining process. The c programm supports this by an additional parameter 'OTAA'.
