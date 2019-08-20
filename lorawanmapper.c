@@ -1,6 +1,6 @@
 /*****************************/
 /* file: lorawanmapper.c     */
-/* date: 2019-08-12          */
+/* date: 2019-08-20          */
 /* autor: Thomas Wesenberg   */
 /*****************************/
 
@@ -23,7 +23,7 @@
 #define GPIO_RF_RESET  25
 #define BUFLEN 64
 #define HWEUI_LEN 20
-#define SENT_EVERY_X_MINUTES 5
+#define SENT_EVERY_X_MINUTES 2	/* 3 minimum for SF12 (5 recommended), 1 minimum for SF7 (2 recommended) */
 #define APP_EUI_DEFAULT "0123456789012345" /* private data, refer TTN console */
 #define APP_EUI_PRIVATE APP_EUI_DEFAULT
 #define APP_KEY_DEFAULT "01234567890123456789012345678901" /* private data, refer TTN console */
@@ -39,6 +39,24 @@ struct gps_data_t my_gps_data;
 char message[BUFLEN];
 int buttonRecognized = 0;
 bool otaaForced = false;
+
+void logMsg(const char *message)
+{
+	int fd = open("/var/log/lorawanmapper.log", O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (fd == -1)
+		printf("error opening log file\n");
+	else {
+		printf(message);
+		write(fd, message, strlen(message));
+		if (fsync(fd) == -1) {
+			printf("fsync error\n");
+		}
+		close(fd);
+		if (close(fd) == -1) {
+			printf("close error\n");
+		}
+	}
+}
 
 void check_lorawan_parameter(void)
 {
@@ -100,7 +118,7 @@ void init(void)
 
 	ser_fd = open("/dev/serial0", O_RDWR | O_NOCTTY);
 	if (ser_fd == -1) {
-		printf("could not open serial interface\r\n");
+		logMsg("could not open serial interface\r\n");
 		exit(EXIT_FAILURE);
 	} else {
 		struct termios options;
@@ -121,7 +139,7 @@ void init(void)
 	rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		close(ser_fd);
-		printf("nothing received while waiting for version info\r\n");
+		logMsg("nothing received while waiting for version info\r\n");
 		exit(EXIT_FAILURE);
 	}
 }
@@ -261,6 +279,7 @@ bool activate(void)
 		message[rxCount] = 0;
 		printf("join otaa result: %s", message);
 		if (strncmp(message, "denied\r\n", 8) == 0) {
+			logMsg("OTAA denied\r\n");
 			return false;
 		}
 	}
@@ -417,12 +436,16 @@ int button_released(void)
 bool init_gps(void)
 {
 	int rc;
-	if ((rc = gps_open("localhost", "2947", &my_gps_data)) == -1) {
-		printf("code: %d, reason: %s\n", rc, gps_errstr(rc));
-		return false;
+	for (int i = 0; i < 10; i++) {
+		rc = gps_open("localhost", "2947", &my_gps_data);
+		if (rc != -1) {
+			gps_stream(&my_gps_data, WATCH_ENABLE | WATCH_JSON, NULL);
+			return true;
+		}
+		sleep(3);
 	}
-	gps_stream(&my_gps_data, WATCH_ENABLE | WATCH_JSON, NULL);
-	return true;
+	printf("code: %d, reason: %s\n", rc, gps_errstr(rc));
+	return false;
 }
 
 void flush_gps_data(void)
@@ -462,10 +485,10 @@ int main(int argc, char** argv)
 	if (argc == 2) {
 		if (strcmp(argv[1], "OTAA") == 0) {
 			otaaForced = true;
-			printf("> forcing OTAA join <\r\n");
+			logMsg("> forcing OTAA join <\r\n");
 		}
 	} else if (argc > 2) {
-		printf("Too many arguments supplied.\n");
+		logMsg("Too many arguments supplied.\n");
 		return EXIT_FAILURE;
 	}
 	printf("Now initializing WiringPi ...\r\n");
@@ -476,6 +499,7 @@ int main(int argc, char** argv)
 	init();
 	printf("Now initializing GPS ...\r\n");
 	if (init_gps() == false) {
+		logMsg("GPS init failed\r\n");
 		return EXIT_FAILURE;
 	}
 	printf("GPS init finished\r\n");
@@ -543,8 +567,7 @@ int main(int argc, char** argv)
 				led(LED_GREEN);
 				if (loraSend(option)) {
 					// be prepared for poweroff
-					saveLoraParameter();
-					delay_ms(15000);
+					saveLoraParameter();	// takes about 3 seconds to finish //
 					led(LED_OFF);
 				} else {
 					led(LED_RED);
