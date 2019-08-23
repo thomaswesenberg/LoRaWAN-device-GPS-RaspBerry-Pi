@@ -1,6 +1,6 @@
 /*****************************/
 /* file: lorawanmapper.c     */
-/* date: 2019-08-20          */
+/* date: 2019-08-23          */
 /* autor: Thomas Wesenberg   */
 /*****************************/
 
@@ -288,7 +288,7 @@ bool activate(void)
 
 void set_parameter(void)
 {
-	strncpy(message, "mac set dr 5\r\n", BUFLEN);
+	strncpy(message, "mac set dr 2\r\n", BUFLEN);	// this selects SF10 instead of SF12
 	write(ser_fd, message, strlen(message));
 	delay_ms(100);
 	int rxCount = read(ser_fd, message, BUFLEN);
