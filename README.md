@@ -13,9 +13,9 @@ Beware: Don't start developing such a device if there's no gateway around. You d
 # Short description
 If a LoRaWAN data packet is received by a gateway configured for TTN it is forwarded to the selected TTN server application. Using a payload decoder and a 'TTN Mapper' integration the location data will be considered by ttnmapper.org and shows up in their map. By contributing to the TTN Mapper project a worldwide map of LoRaWAN coverage is build up.
 - Having a LoRaWAN gateway configured for TTN nearby is necessary for first testing purposes.
-   https://www.thethingsnetwork.org/ lists known locations of gateways and sometimes also coverage data on the map. At the time this description was written about 7400 gateways were up and running worldwide.
+   https://www.thethingsnetwork.org/ lists known locations of gateways and sometimes also coverage data on the map. At the time this description was written about 22400 gateways were up and running worldwide.
    It is possible to set up an own gateway, configured for TTN or any other server architecture, even a private one.
-- After creating an account at https://www.thethingsnetwork.org/ it is possible to set up an application which would be the receiver for the own LoRaWAN data packets. LoRaWAN data is end-to-end encrypted. To inform ttnmapper.org about sucessfully packet reception by LoRaWAN network, an application plugin is available, called 'TTN Mapper'. *)
+- After creating an account at https://www.thethingsnetwork.org/ it is possible to set up an application which would be the receiver for the own LoRaWAN data packets. LoRaWAN data is end-to-end encrypted. To inform ttnmapper.org about sucessfully packet reception by LoRaWAN network, an application plugin ('integration') is available, called 'TTN Mapper'. *)
 - To deliver the necessary GPS data to the TTN mapper project a 'decoder' converts the raw data into a JSON data structure.
 - The hardware is based on the RN2483A fully-certified LoRa module which has the whole LoRaWAN stack integrated.
 - The software is realized by a C program with autostart functionality. Every 5 minutes a packet is sent out. Alternatively pressing a button sends out a packet at once.
@@ -31,7 +31,7 @@ How to configure a RaspBerry Pi Zero is described here: <br>
 
 # Operational notes
 After powering up LoRaWANmapper is started automatically. <br>
-Currently not shown on the picture (will be added soon) is an additional adapter with leds and pushbuttons. Without that adapter just jump to (e).<br>
+Currently not shown on the picture (will be added later) is an additional adapter with leds and pushbuttons. Without that adapter just jump to (e).<br>
 a) LED is yellow while initializing. This may take several seconds or will continue endlessly (no LoRaWAN gateway nearby and no valid network data available from an earlier joining). <br>
 b) The LED flashes yellow until GPS fix is achieved. Then it will turn off.<br>
 c) Pressing the first button will light up the LED in green and after releasing a data packet is sent out. <br>
@@ -46,7 +46,7 @@ https://www.tindie.com/products/drazzy/lorawan-rn2483rn2903-breakout-board-assem
 For connecting the GPS stick (here VK-172) a Micro-USB OTG adapter cable is necessary. <br>
 Instead of a RasbBerry Pi Zero also any other RaspBerry could be used too, then the adapter cable is not required.
 
-In the picture is a 3-pin connector to be seen soldered to the serial pins. It is used together with two serial-to-USB adapters (only RX pin used) to monitor both serial data streams. This is a very helpful debugging tool and avoids to insert many printf debug outputs in the code.
+In the picture is a 3-pin connector to be seen soldered to the serial pins. It is used together with two serial-to-USB adapters (only RX pin used) to monitor both serial data streams. This is a helpful debugging tool and avoids to insert many printf debug messages in the code.
 
 More details will be added later. Please take a look at the high resolution pictures in between.
 
@@ -96,3 +96,10 @@ and option = 0 <br>
 
 Hint: If you are in reach of a LoRaWAN gateway but the LoRa module answers with a 'denied' while trying to join the network via command 'mac join otaa', most probably wrong EEPROM content is the cause. Then a 'sys factoryRESET' may be necessary to continue. Before issuing a 'mac save' command the values of devaddr, appeui and appkey have to be updated. The first time before issuing a 'mac join otaa' these values have to be set to zero. After successfully joining the network the module updates these values internally. A following 'mac save' command writes them into EEPROM. This should also be the last command before powering off. Otherwise the frame counter value in the EEPROM ist not updated to the last one used. Continuing later with an old frame counter value may require to reset the frame counter in the application manually. Otherwise all the frames with counter values less or equal to the last one received, will be discarded by the server.
 If you change TTN parameters you should force a new OTAA joining process. The c programm supports this by an additional parameter 'OTAA'.
+
+# Update regarding V3 (The Things Stack Community Edition)
+If the device has already been set up earlier with The Things Network (V2), then first the device has to be deleted there.
+Then it can be added in V3. A new OTAA has to be triggered to register at V3. This can be done by issuing the parameter 'OTAA' to the call of lorawanmapper.
+The TTN decoder has to be changed for V3, here it's called 'uplink payload formatter'. Strings are not used any longer for the TTNMapper integration.
+If decoder and integration are setup correctly then in the 'live data' listing after every 'forward uplink data message' (showing the payload with readable values for altitude, hdop, latitude and longitude) two more entries are shown: a 'Forward location solved message' and a 'Update and device' entry.
+Then at https://ttnmapper.org the new data can be seen. If the displayed data shall be limited to this individual device, then the 'advanced maps' selection can be used. Here the 'device ID' has to be exactly the 'Entity ID' shown in 'The Stings Stack Community Edition' 'Live Data', starting with 'eui-'.
