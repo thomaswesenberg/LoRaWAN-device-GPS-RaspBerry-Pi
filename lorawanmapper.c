@@ -1,6 +1,6 @@
 /*****************************/
 /* file: lorawanmapper.c     */
-/* date: 2019-08-23          */
+/* date: 2021-10-18          */
 /* autor: Thomas Wesenberg   */
 /*****************************/
 
@@ -18,16 +18,20 @@
 #include <math.h>
 #include <wiringPi.h>
 
+#define GPIO_DEBUG   16
 #define GPIO_LED_RED   19
 #define GPIO_LED_GREEN 26
 #define GPIO_RF_RESET  25
 #define BUFLEN 64
 #define HWEUI_LEN 20
-#define SENT_EVERY_X_MINUTES 2	/* 3 minimum for SF12 (5 recommended), 1 minimum for SF7 (2 recommended) */
+#define SENT_EVERY_X_MINUTES 1	/* 3 minimum for SF12, 1 minimum for SF7 */
 #define APP_EUI_DEFAULT "0123456789012345" /* private data, refer TTN console */
-#define APP_EUI_PRIVATE APP_EUI_DEFAULT
 #define APP_KEY_DEFAULT "01234567890123456789012345678901" /* private data, refer TTN console */
-#define APP_KEY_PRIVATE APP_KEY_DEFAULT
+//#define APP_EUI_PRIVATE APP_EUI_DEFAULT
+#define APP_EUI_PRIVATE "70B3D57ED001F9B9"
+//#define APP_KEY_PRIVATE APP_KEY_DEFAULT
+#define APP_KEY_PRIVATE "A19BC1FDC0BDA6BA10416AB49886C285"   /* mapper2 */
+
 
 int button_check(void);
 
@@ -109,6 +113,7 @@ void init(void)
 {
 	int rxCount;
 
+	pinMode(GPIO_DEBUG, OUTPUT);
 	pinMode(GPIO_LED_GREEN, OUTPUT);
 	pinMode(GPIO_LED_RED, OUTPUT);
 	pinMode(GPIO_RF_RESET, OUTPUT);
@@ -148,18 +153,19 @@ bool join(void)
 {
 	// let's check if we've got usable data out of eeprom from saved previous activities
 	if (otaaForced) {
+		printf("OTAA forced!\n");
 		return false;
 	}
 	strncpy(message, "mac get devaddr\r\n", BUFLEN);
 	write(ser_fd, message, strlen(message));
-	delay_ms(100);
+	delay_ms(200);
 	int rxCount = read(ser_fd, message, BUFLEN);
 	if (rxCount < 1) {
 		printf("nothing received while waiting for GET DEVADDR reply\r\n");
 		return false;
 	} else {
-		//message[rxCount] = 0;
-		//printf("devaddr: %s", message);
+		message[rxCount] = 0;
+		printf("devaddr: %s", message);
 		if (strncmp(message, "00000000\r\n", 10) != 0) {
 			// ok to reuse data from eeprom
 			strncpy(message, "mac join abp\r\n", BUFLEN);
@@ -182,6 +188,8 @@ bool join(void)
 				printf("This HW EUI is %s", message);
 				check_lorawan_parameter();
 				return true;
+			} else {
+				printf("no success using EEPROM data!\n");
 			}
 		}
 	}
@@ -288,7 +296,7 @@ bool activate(void)
 
 void set_parameter(void)
 {
-	strncpy(message, "mac set dr 2\r\n", BUFLEN);	// this selects SF10 instead of SF12
+	strncpy(message, "mac set dr 2\r\n", BUFLEN);	// "dr 5" = SF7, "dr 4" = SF8, "dr 3" = SF9, "dr 2" = SF10
 	write(ser_fd, message, strlen(message));
 	delay_ms(100);
 	int rxCount = read(ser_fd, message, BUFLEN);
@@ -305,22 +313,21 @@ bool loraSend(int opt)
 	int AltitudeBinary = my_gps_data.fix.altitude;
 	int HdopBinary = my_gps_data.dop.hdop * 10.0;
 	char message[BUFLEN];
-	sprintf(message, "mac tx uncnf 1 %06x%06x%04x%02x%02x\r\n", LatitudeBinary & 0xFFFFFF, LongitudeBinary & 0xFFFFFF, AltitudeBinary & 0xFFFF, HdopBinary & 0xFF, opt);
+	sprintf(message, "mac tx uncnf 1 %06x%06x%04x%02x\r\n", LatitudeBinary & 0xFFFFFF, LongitudeBinary & 0xFFFFFF, AltitudeBinary & 0xFFFF, ((opt & 0x01) << 7) | HdopBinary & 0xCF);
 	tcflush(ser_fd, TCIFLUSH);
 	write(ser_fd, message, strlen(message));
 	delay_ms(100);
 	if (read(ser_fd, message, BUFLEN) < 1) {
+		printf("no reply (1)\r\n");
 		return false;
 	}
 	if (strncmp(message, "ok\r\n", 4) != 0) {
-		char * stringEnd = strstr(message, "\r\n");
-		if (stringEnd != NULL) {
-			*stringEnd = 0;
-		}
+		printf("no ok [%s]\r\n", message);
 		return false;
 	}
-	delay_ms(5000);
+	delay_ms(7000);
 	if (read(ser_fd, message, BUFLEN) < 1) {
+		printf("no reply (2)\r\n");
 		return false;
 	}
 	if (strncmp(message, "mac_tx_ok\r\n", 11) != 0) {
@@ -346,7 +353,7 @@ void saveLoraParameter(void)
 		exit(EXIT_FAILURE);
 	}
 	message[rxCount] = 0;
-	printf("mac save reply: %s", message);
+	//printf("mac save reply: %s", message);
 }
 
 void deinit(void)
@@ -365,26 +372,32 @@ int button_check(void)
 	int button = 0;
 	struct timespec ts;
 	ts.tv_sec = 0;
+
 	// set to input and wait a very short time
 	pinMode(GPIO_LED_GREEN, INPUT);
 	pinMode(GPIO_LED_RED, INPUT);
-	ts.tv_nsec = 10000000L;
+	ts.tv_nsec = 1000L;
 	nanosleep(&ts, (struct timespec *)NULL);
+	digitalWrite(GPIO_DEBUG, 1);
 	valueButtonGreen = digitalRead(GPIO_LED_GREEN);
 	valueButtonRed = digitalRead(GPIO_LED_RED);
-	// set back to output and wait for debouncing functionality (read status two times)
+	digitalWrite(GPIO_DEBUG, 0);
+	// set back to output and wait (read status two times for debouncing functionality)
 	pinMode(GPIO_LED_GREEN, OUTPUT);
 	pinMode(GPIO_LED_RED, OUTPUT);
 	led(LED_RESTORE);
 	ts.tv_nsec = 90000000L;
 	nanosleep(&ts, (struct timespec *)NULL);
 	// set to input and wait a very short time
+
 	pinMode(GPIO_LED_GREEN, INPUT);
 	pinMode(GPIO_LED_RED, INPUT);
-	ts.tv_nsec = 10000000L;
+	ts.tv_nsec = 1000L;
 	nanosleep(&ts, (struct timespec *)NULL);
+	digitalWrite(GPIO_DEBUG, 1);
 	valueButtonGreen += digitalRead(GPIO_LED_GREEN);
 	valueButtonRed += digitalRead(GPIO_LED_RED);
+	digitalWrite(GPIO_DEBUG, 0);
 	// now we have all the information we need, so set back to output for controlling LED status
 	pinMode(GPIO_LED_GREEN, OUTPUT);
 	pinMode(GPIO_LED_RED, OUTPUT);
@@ -415,9 +428,12 @@ int button_check(void)
 int button_released(void)
 {
 	if (button_check() == 0) {
+		// not pressed or just released
 		int value = buttonRecognized;
 		if (buttonRecognized > 0) {
+			// just released
 			buttonRecognized = 0;
+			printf("Button pressed\r\n");
 			return value;
 		}
 	}
@@ -443,7 +459,7 @@ void flush_gps_data(void)
 {
 	while (gps_read(&my_gps_data) > 0) {
 		;
-	}	
+	}
 }
 
 bool fetch_gps(void)
@@ -463,7 +479,7 @@ bool fetch_gps(void)
 				!isnan(my_gps_data.fix.altitude) &&
 				!isnan(my_gps_data.dop.hdop)) {
 					return true;
-				}
+			}
 		}
 		delay_ms(500);
 	}
@@ -482,29 +498,29 @@ int main(int argc, char** argv)
 		logMsg("Too many arguments supplied.\n");
 		return EXIT_FAILURE;
 	}
-	printf("Now initializing WiringPi ...\r\n");
+	//printf("Now initializing WiringPi ...\r\n");
 	wiringPiSetupGpio();
 	pullUpDnControl(GPIO_LED_GREEN, PUD_UP);
 	pullUpDnControl(GPIO_LED_RED, PUD_UP);
-	printf("WiringPi Setup finished\r\n");
+	//printf("WiringPi Setup finished\r\n");
 	init();
-	printf("Now initializing GPS ...\r\n");
+	//printf("Now initializing GPS ...\r\n");
 	if (init_gps() == false) {
 		logMsg("GPS init failed\r\n");
 		return EXIT_FAILURE;
 	}
-	printf("GPS init finished\r\n");
+	//printf("GPS init finished\r\n");
 	// set up lorawan
 	if (! join()) {
 		// communicate with network, wait as long as necessary
+	        printf("not joined, now waiting for activation\r\n");
 		while (! activate()) {
 			delay_ms(SENT_EVERY_X_MINUTES * 60 * 1000);
 		}
 	}
-	led(LED_OFF);
 	set_parameter();
 	flush_gps_data();
-	printf("successfully initialized, now waiting for an event (time, button) ...\n");
+	printf("successfully initialized, now waiting for a GPS fix ...\n");
 	while (1) {
 		static int option = 0;
 		static long gpsSecondNow = 0;
@@ -514,6 +530,7 @@ int main(int argc, char** argv)
 			if (!gpsFixMsgPrinted) {
 				gpsFixMsgPrinted = true;
 				printf("GPS fix achieved\r\n");
+				led(LED_OFF);
 			}
 			bool sendDataNow = false;
 			int buttonReleased = button_released();
@@ -526,6 +543,7 @@ int main(int argc, char** argv)
 				if (automode) {
 					printf("automode off\n");
 					automode = false;
+					// signalled by led: RED-YELLOW-RED
 					led(LED_RED);
 					delay_ms(2000);
 					led(LED_YELLOW);
@@ -536,6 +554,7 @@ int main(int argc, char** argv)
 				} else {
 					printf("automode on\n");
 					automode = true;
+					// signalled by led: GREEN-YELLOW-GREEN
 					led(LED_GREEN);
 					delay_ms(2000);
 					led(LED_YELLOW);
@@ -546,8 +565,9 @@ int main(int argc, char** argv)
 				}
 			} else if (automode) {
 				if (gpsSecondNow != (long)my_gps_data.fix.time) {
+					// do this just once every second
 					gpsSecondNow = (long)my_gps_data.fix.time;
-					if ((gpsSecondNow % (SENT_EVERY_X_MINUTES * 60)) == 0) {
+					if ((gpsSecondNow % (SENT_EVERY_X_MINUTES * 60)) == 42) {
 						if (gpsSecondNow >= (lastDataSentSecond + SENT_EVERY_X_MINUTES * 60 - 3)){
 							sendDataNow = true;
 						}
@@ -556,6 +576,7 @@ int main(int argc, char** argv)
 			}
 			if (sendDataNow) {
 				led(LED_GREEN);
+				printf("minute: %lu, lat: %.4f, lon: %.4f, alt: %.0f, hdop: %.1f\n", gpsSecondNow/60, my_gps_data.fix.latitude, my_gps_data.fix.longitude, my_gps_data.fix.altitude, my_gps_data.dop.hdop);
 				if (loraSend(option)) {
 					// be prepared for poweroff
 					saveLoraParameter();	// takes about 3 seconds to finish //
@@ -565,15 +586,9 @@ int main(int argc, char** argv)
 					delay_ms(15000);
 					led(LED_OFF);
 				}
-				printf("lat: %f, lon: %f, alt: %f, hdop: %f\n", my_gps_data.fix.latitude, my_gps_data.fix.longitude, my_gps_data.fix.altitude, my_gps_data.dop.hdop);
 				lastDataSentSecond = gpsSecondNow;
 			}
 			delay_ms(100);
-		} else {
-			led(LED_YELLOW);
-			delay_ms(2000);
-			led(LED_OFF);
-			delay_ms(1000);
 		}
 	}
 	deinit();
